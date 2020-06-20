@@ -1,5 +1,6 @@
 import unittest
-from tonetranspose.transpose import Transpose, NoteNameType, Tone, ToneGroup
+from tonetranspose.transpose import Transpose, NoteNameType, Tone, ToneGroup, Progression
+import logging
 
 
 def full_range(start, stop): return range(start, stop + 1)
@@ -9,6 +10,22 @@ class TestTone(unittest.TestCase):
 
     def setUp(self):
         pass
+
+    def test_valid_note_name(self):
+        self.assertEqual(True, Tone.is_valid_note_name("A"))
+        self.assertEqual(True, Tone.is_valid_note_name("Bb"))
+        self.assertEqual(True, Tone.is_valid_note_name("C#"))
+        self.assertEqual(False, Tone.is_valid_note_name("B1b"))
+        self.assertEqual(False, Tone.is_valid_note_name(1))
+        self.assertEqual(True, Tone.is_valid_note_name(["C", "E", "G"]))
+        self.assertEqual(False, Tone.is_valid_note_name(["C", "2", "G"]))
+
+    def test_valid_pitch(self):
+        self.assertEqual(False, Tone.is_valid_pitch(13))
+        self.assertEqual(False, Tone.is_valid_pitch(0))
+        self.assertEqual(False, Tone.is_valid_pitch(-1))
+        for pitch in full_range(1, 12):
+            self.assertEqual(True, Tone.is_valid_pitch(pitch))
 
     def test_tone_object(self):
         sharp_name = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
@@ -26,6 +43,15 @@ class TestTone(unittest.TestCase):
         tone = Tone.get_instance_from_name(note)
         self.assertEqual(tone.get_enharmonic(), "G")
 
+    def test_note_name_type(self):
+        self.assertEqual(Tone.get_notation_type("C"), NoteNameType.Enharmonic)
+        self.assertEqual(Tone.get_notation_type("F#"), NoteNameType.Sharp)
+        self.assertEqual(Tone.get_notation_type("Db"), NoteNameType.Flat)
+        self.assertEqual(Tone.get_notation_type(["D", "F#", "A"]), NoteNameType.Sharp)
+        self.assertEqual(Tone.get_notation_type(["Bb", "Eb", "Ab"]), NoteNameType.Flat)
+        self.assertEqual(Tone.get_notation_type(["Bb", "D", "F#"]), NoteNameType.Enharmonic)
+        self.assertEqual(Tone.get_notation_type("??"), NoteNameType.Enharmonic)
+
 
 class TestToneGroup(unittest.TestCase):
 
@@ -33,12 +59,13 @@ class TestToneGroup(unittest.TestCase):
         pass
 
     def tone_group_creation(self):
-        tone_group = ToneGroup.get_instance_from_input("D", ["D", "F#", "A"])
+        tone_group = ToneGroup.get_instance("D", ["D", "F#", "A"])
         self.assertEqual(tone_group.to_string(NoteNameType.Sharp), "D, F#, A")
         self.assertEqual(tone_group.to_string(NoteNameType.Flat), "D, Gb, A")
         self.assertEqual(tone_group.to_string(NoteNameType.Enharmonic), "D, Gb_F#, A")
         self.assertEqual(tone_group.to_string(), "D, Gb_F#, A")
         self.assertEqual(tone_group.to_string(NoteNameType.Sharp), "D, F#, A")
+        self.assertEqual(None, ToneGroup.get_instance("D", ["Dss", "F#", "A"]))
 
 
 class TestTranspose(unittest.TestCase):
@@ -49,7 +76,7 @@ class TestTranspose(unittest.TestCase):
     def tone_group_summary_intervals(self):
         transpose = Transpose("C", ['C', 'E', 'G'])
         intervals = transpose.get_intervals()
-        self.assertEquals(intervals, ['R', '3', '5'])
+        self.assertEqual(intervals, ['R', '3', '5'])
 
     def tone_group_summary_keys(self):
         transpose = Transpose("C", ['C', 'E', 'G'])
@@ -118,10 +145,120 @@ class TestTranspose(unittest.TestCase):
             elif pitch == 12:
                 self.assertEqual(t.to_string(), "B, Eb_D#, Gb_F#")
 
+    def test_interval_counts(self):
+        notes = Transpose("D", ["A", "C", "F", "G", "B", "C", "G", "B", "C", "G", "B", "C"])
+        counts1 = notes.get_intervals_counts(NoteNameType.Flat)
+        self.assertEqual(str(counts1), "{'5': 1, 'b7': 4, 'b3': 1, '4': 3, '6': 3}")
+        counts2 = notes.get_intervals_counts(NoteNameType.Sharp)
+        self.assertEqual(str(counts2), "{'5': 1, '#6': 4, '#2': 1, '4': 3, '6': 3}")
+        counts3 = notes.get_intervals_counts()
+        self.assertEqual(str(counts3), "{'5': 1, 'b7_#6': 4, 'b3_#2': 1, '4': 3, '6': 3}")
+
+    def test_get_transposition_by_key(self):
+        transpose = Transpose("C", ['C', 'E', 'G'])
+        self.assertEqual(transpose.get_transposition(3).root_tone.get_note_name(NoteNameType.Flat), "D")
+        self.assertEqual(transpose.get_transposition(3).to_string(NoteNameType.Flat), "D, Gb, A")
+        self.assertEqual(transpose.get_transposition_for_named_key("E").root_tone.get_note_name(NoteNameType.Sharp),
+                         "E")
+        self.assertEqual(transpose.get_transposition_for_named_key("E").to_string(NoteNameType.Sharp), "E, G#, B")
+        self.assertEqual(transpose.get_transposition_for_named_key("C").root_tone.get_note_name(), "C")
+        self.assertEqual(transpose.get_transposition_for_named_key("C").to_string(), "C, E, G")
+        self.assertEqual(transpose.get_transposition_for_named_key("A").to_string(), "A, Db_C#, E")
+
+    def test_transposition_creation(self):
+        # Tests to see if creating the transpose object using the instance method (input of a tonegroup)
+        # is the same as creating a transpose object by directly calling the constructor
+        # (input of note_name, and list of tone notes)
+
+        note_type_list = [NoteNameType.Flat, NoteNameType.Sharp, NoteNameType.Enharmonic]
+        root_notes_list = ["C", "Bb", "F#"]
+        list_notes_list = [["C", "E", "G"], ["C", "E", "G#"], ["C", "Eb", "G"], ["C", "Eb", "G#"]]
+
+        for note_type in note_type_list:
+            for root_note_name in root_notes_list:
+                for list_notes in list_notes_list:
+                    transpose1 = Transpose(root_note_name, list_notes)
+                    tone_group = ToneGroup.get_instance(root_note_name, list_notes)
+                    transpose2 = Transpose.get_instance(tone_group)
+
+                    self.assertEqual(type(transpose1.root), type(transpose2.root))
+                    self.assertEqual(transpose1.root, transpose2.root)
+
+                    self.assertEqual(type(transpose1.notes_list), type(transpose2.notes_list))
+                    self.assertEqual(transpose1.notes_list, transpose2.notes_list)
+
+                    p1 = transpose1.get_all_positions()
+                    p2 = transpose2.get_all_positions()
+
+                    self.assertEqual(len(p1), len(p2))
+                    self.assertEqual(type(transpose1.transposed_list), type(transpose2.transposed_list))
+
+                    for a, b in zip(p1, p2):
+                        self.assertEqual(a.to_string(note_type), b.to_string(note_type))
+
+                    d1 = transpose1.get_tone_groups_by_key_pattern(note_type)
+                    d2 = transpose2.get_tone_groups_by_key_pattern(note_type)
+
+                    self.assertEqual(len(d1), len(d2))
+
+                    for keys1, keys2 in zip(d1, d2):
+                        self.assertEqual(keys1.key_pattern, keys2.key_pattern)
+                        self.assertEqual(keys1.count, keys2.count)
+                        self.assertEqual(keys1.root_notes, keys2.root_notes)
+
+                    self.assertEqual(type(transpose1.note_name_type), type(transpose1.note_name_type))
+                    self.assertEqual(transpose1.note_name_type, transpose1.note_name_type)
+
+
+class TestProgression(unittest.TestCase):
+    def setUp(self):
+        pass
+
+    def test_root_notes(self):
+        tone_group2 = ToneGroup.get_instance("D", ["D", "E", "A"])
+        tone_group5 = ToneGroup.get_instance("G", ["G", "B", "D"])
+        tone_group1 = ToneGroup.get_instance("C", ["C", "E", "G"])
+        key = Tone.get_instance_from_name("C")
+        progression = Progression(key, tone_group2, tone_group5, tone_group1)
+        pos = progression.get_root_positions()
+        pitch = 1
+        for p in pos:
+            if pitch == 1:
+                self.assertEqual(p.to_string(NoteNameType.Flat), "D, G, C")
+            elif pitch == 2:
+                self.assertEqual(p.to_string(NoteNameType.Flat), "Eb, Ab, Db")
+            elif pitch == 3:
+                self.assertEqual(p.to_string(NoteNameType.Flat), "E, A, D")
+            elif pitch == 4:
+                self.assertEqual(p.to_string(NoteNameType.Flat), "F, Bb, Eb")
+            elif pitch == 5:
+                self.assertEqual(p.to_string(NoteNameType.Flat), "Gb, B, E")
+            elif pitch == 6:
+                self.assertEqual(p.to_string(NoteNameType.Flat), "G, C, F")
+            elif pitch == 7:
+                self.assertEqual(p.to_string(NoteNameType.Flat), "Ab, Db, Gb")
+            elif pitch == 8:
+                self.assertEqual(p.to_string(NoteNameType.Flat), "A, D, G")
+            elif pitch == 9:
+                self.assertEqual(p.to_string(NoteNameType.Flat), "Bb, Eb, Ab")
+            elif pitch == 10:
+                self.assertEqual(p.to_string(NoteNameType.Flat), "B, E, A")
+            elif pitch == 11:
+                self.assertEqual(p.to_string(NoteNameType.Flat), "C, F, Bb")
+            elif pitch == 12:
+                self.assertEqual(p.to_string(NoteNameType.Flat), "Db, Gb, B")
+            pitch += 1
+
 
 def run_all_tests():
+    log = logging.getLogger("Transposer")
+    logging.basicConfig(level=logging.INFO)
+    log.info("Start testing")
     test_tone = TestTone()
     test_tone.test_tone_instance()
+    test_tone.test_valid_note_name()
+    test_tone.test_valid_pitch()
+    test_tone.test_note_name_type()
     test_tone_group = TestToneGroup()
     test_tone_group.tone_group_creation()
     test_transpose = TestTranspose()
@@ -129,3 +266,10 @@ def run_all_tests():
     test_transpose.tone_group_summary_keys()
     test_transpose.tone_group_summary_data()
     test_transpose.test_all_transpositions()
+    test_transpose.test_interval_counts()
+    test_transpose.test_get_transposition_by_key()
+    test_transpose.test_transposition_creation()
+    test_progression = TestProgression()
+    test_progression.test_root_notes()
+    log.info("End testing")
+
