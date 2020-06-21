@@ -1,5 +1,5 @@
 import unittest
-from tonetranspose.transpose import Transpose, NoteNameType, Tone, ToneGroup, Progression
+from tonetranspose.transpose import Transpose, NoteNameType, Tone, ToneGroup, Progression, SortKeys, Direction
 import logging
 
 
@@ -80,7 +80,7 @@ class TestTranspose(unittest.TestCase):
 
     def tone_group_summary_keys(self):
         transpose = Transpose("C", ['C', 'E', 'G'])
-        summary_key = transpose.get_tone_groups_by_key_pattern()
+        summary_key = transpose.get_key_pattern_summary()
         self.assertEqual(len(summary_key), 6)
 
         keys = ["www", "bwb", "wbw", "bbb", "bww", "wbb"]
@@ -94,7 +94,7 @@ class TestTranspose(unittest.TestCase):
 
     def tone_group_summary_data(self):
         transpose = Transpose("C", ['C', 'E', 'G'])
-        summary_keys = transpose.get_tone_groups_by_key_pattern(NoteNameType.Flat)
+        summary_keys = transpose.get_key_pattern_summary(NoteNameType.Flat)
         for summary_key in summary_keys:
             if summary_key.key_pattern == "www":
                 self.assertEqual(summary_key.count, 3)
@@ -170,6 +170,7 @@ class TestTranspose(unittest.TestCase):
         # is the same as creating a transpose object by directly calling the constructor
         # (input of note_name, and list of tone notes)
 
+        self.maxDiff = None
         note_type_list = [NoteNameType.Flat, NoteNameType.Sharp, NoteNameType.Enharmonic]
         root_notes_list = ["C", "Bb", "F#"]
         list_notes_list = [["C", "E", "G"], ["C", "E", "G#"], ["C", "Eb", "G"], ["C", "Eb", "G#"]]
@@ -191,13 +192,16 @@ class TestTranspose(unittest.TestCase):
                     p2 = transpose2.get_all_positions()
 
                     self.assertEqual(len(p1), len(p2))
-                    self.assertEqual(type(transpose1.transposed_list), type(transpose2.transposed_list))
+                    self.assertEqual(type(transpose1.get_all_positions()), type(transpose2.get_all_positions()))
+
+                    self.assertEqual(len(p1), 12)
+                    self.assertEqual(len(p2), 12)
 
                     for a, b in zip(p1, p2):
                         self.assertEqual(a.to_string(note_type), b.to_string(note_type))
 
-                    d1 = transpose1.get_tone_groups_by_key_pattern(note_type)
-                    d2 = transpose2.get_tone_groups_by_key_pattern(note_type)
+                    d1 = transpose1.get_key_pattern_summary(note_type)
+                    d2 = transpose2.get_key_pattern_summary(note_type)
 
                     self.assertEqual(len(d1), len(d2))
 
@@ -208,6 +212,45 @@ class TestTranspose(unittest.TestCase):
 
                     self.assertEqual(type(transpose1.note_name_type), type(transpose1.note_name_type))
                     self.assertEqual(transpose1.note_name_type, transpose1.note_name_type)
+
+    def test_sorting_key_patterns(self):
+        transpose1 = Transpose("C", ["C", "Eb", "G", "Bb"])
+
+        # test default sort order settings
+        positions = transpose1.get_key_pattern_summary(NoteNameType.Flat)
+        self.assertEqual(len(positions), 8)
+        counter = 0
+        expected = [("wwww", 3, "D,E,A"), ("wbwb", 2, "C,F"), ("bwbw", 2, "Db,Gb"), ("bbbb", 1, "Eb"), ("wbww", 1, "G"),
+                    ("bwbb", 1, "Ab"), ("bbwb", 1, "Bb"), ("wwbw", 1, "B")]
+        for k1 in positions:
+            self.assertEqual(k1.key_pattern, expected[counter][0])
+            self.assertEqual(k1.count, expected[counter][1])
+            self.assertEqual(k1.root_notes, expected[counter][2])
+            counter += 1
+
+        # test sort by specified direction
+        positions = transpose1.get_key_pattern_summary(NoteNameType.Flat, SortKeys.Count, Direction.Ascending)
+        self.assertEqual(len(positions), 8)
+        counter = 0
+        expected = [("bbbb", 1, "Eb"), ("wbww", 1, "G"), ("bwbb", 1, "Ab"), ("bbwb", 1, "Bb"), ("wwbw", 1, "B"),
+                    ("wbwb", 2, "C,F"), ("bwbw", 2, "Db,Gb"), ("wwww", 3, "D,E,A")]
+        for k1 in positions:
+            self.assertEqual(k1.key_pattern, expected[counter][0])
+            self.assertEqual(k1.count, expected[counter][1])
+            self.assertEqual(k1.root_notes, expected[counter][2])
+            counter += 1
+
+        # test sort by key pattern
+        positions = transpose1.get_key_pattern_summary(NoteNameType.Flat, SortKeys.KeyPattern, Direction.Ascending)
+        self.assertEqual(len(positions), 8)
+        counter = 0
+        expected = [("bbbb", 1, "Eb"), ("bbwb", 1, "Bb"), ("bwbb", 1, "Ab"), ("bwbw", 2, "Db,Gb"), ("wbwb", 2, "C,F"),
+                    ("wbww", 1, "G"), ("wwbw", 1, "B"), ("wwww", 3, "D,E,A")]
+        for k1 in positions:
+            self.assertEqual(k1.key_pattern, expected[counter][0])
+            self.assertEqual(k1.count, expected[counter][1])
+            self.assertEqual(k1.root_notes, expected[counter][2])
+            counter += 1
 
 
 class TestProgression(unittest.TestCase):
@@ -250,17 +293,15 @@ class TestProgression(unittest.TestCase):
             pitch += 1
 
 
-def run_all_tests():
-    log = logging.getLogger("Transposer")
-    logging.basicConfig(level=logging.INFO)
-    log.info("Start testing")
+def run_tone_tests():
     test_tone = TestTone()
     test_tone.test_tone_instance()
     test_tone.test_valid_note_name()
     test_tone.test_valid_pitch()
     test_tone.test_note_name_type()
-    test_tone_group = TestToneGroup()
-    test_tone_group.tone_group_creation()
+
+
+def run_transpose_tests():
     test_transpose = TestTranspose()
     test_transpose.tone_group_summary_intervals()
     test_transpose.tone_group_summary_keys()
@@ -269,7 +310,28 @@ def run_all_tests():
     test_transpose.test_interval_counts()
     test_transpose.test_get_transposition_by_key()
     test_transpose.test_transposition_creation()
+    test_transpose.test_sorting_key_patterns()
+
+
+def run_tone_group_tests():
+    test_tone_group = TestToneGroup()
+    test_tone_group.tone_group_creation()
+
+
+def run_progression_tests():
     test_progression = TestProgression()
     test_progression.test_root_notes()
+
+
+def run_all_tests():
+    log = logging.getLogger("Transposer")
+    logging.basicConfig(level=logging.INFO)
+    log.info("Start testing")
+    run_tone_tests()
+    run_tone_group_tests()
+    run_transpose_tests()
+    run_progression_tests()
     log.info("End testing")
 
+
+run_all_tests()

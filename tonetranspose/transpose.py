@@ -186,9 +186,9 @@ class Transpose:
     def __init__(self, root, notes_list):
         self.root = root
         self.notes_list = notes_list
-        self.transposed_list = []
-        self.piano_key_list = []
-        self.intervals_list = []
+        self.__transposed_list = []
+        self.__piano_key_list = []
+        self.__intervals_list = []
         self.note_name_type = NoteNameType.Enharmonic
 
     @staticmethod
@@ -207,36 +207,34 @@ class Transpose:
 
         # Main method to get all the transpositions in a list that can be iterated through
 
-        if not self.transposed_list:
-            tone_group = ToneGroup.get_instance(self.root, self.notes_list)
-            for pitch_number in full_range(Tone.min_pitch, Tone.max_pitch):
-                if pitch_number == tone_group.root_tone.pitch_number:
-                    self.transposed_list.append(tone_group)
-                else:
-                    root_tone = Tone(pitch_number)
-                    transposed = []
-                    note_name_list = []
-                    key_pattern = ""
-                    for part in tone_group.tone_pattern:
-                        transposed_pitch_number = self.__get_interval(pitch_number, part)
-                        transposed_tone = Tone(transposed_pitch_number)
-                        note_name_list.append(transposed_tone.get_note_name())
-                        transposed.append(transposed_tone)
-                        key_pattern += transposed_tone.get_location_on_keyboard()
-                    self.transposed_list.append(ToneGroup(root_tone, transposed,
-                                                          tone_group.tone_pattern, key_pattern, note_name_list))
-        return self.transposed_list
+        self.__transposed_list = []
+        tone_group = ToneGroup.get_instance(self.root, self.notes_list)
+        for pitch_number in full_range(Tone.min_pitch, Tone.max_pitch):
+            if pitch_number == tone_group.root_tone.pitch_number:
+                self.__transposed_list.append(tone_group)
+            else:
+                root_tone = Tone(pitch_number)
+                transposed = []
+                note_name_list = []
+                key_pattern = ""
+                for part in tone_group.tone_pattern:
+                    transposed_pitch_number = self.__get_interval(pitch_number, part)
+                    transposed_tone = Tone(transposed_pitch_number)
+                    note_name_list.append(transposed_tone.get_note_name())
+                    transposed.append(transposed_tone)
+                    key_pattern += transposed_tone.get_location_on_keyboard()
+                self.__transposed_list.append(ToneGroup(root_tone, transposed,
+                                                        tone_group.tone_pattern, key_pattern, note_name_list))
 
-    def get_tone_groups_by_key_pattern(self, note_name_type=None, sort_keys=SortKeys.Count,
-                                       direction=Direction.Descending):
+        return self.__transposed_list
+
+    def get_key_pattern_summary(self, note_name_type=None, sort_keys=SortKeys.Count,
+                                direction=Direction.Descending):
 
         # Main method to get all shapes on a piano from a transposition in all 12 keys
 
-        if not self.transposed_list:
-            self.get_all_positions()
-
         note_type = self.__get_valid_note_name_type(note_name_type)
-
+        self.__piano_key_list = []
         piano_key_dict = {}
         tone_positions = self.get_all_positions()
         for position in tone_positions:
@@ -249,22 +247,24 @@ class Transpose:
         for key in piano_key_dict:
             root_names = ",".join([x.root_tone.get_note_name(note_type) for x in piano_key_dict[key]])
             piano_keys = PianoKeys(key, len(piano_key_dict[key]), root_names, piano_key_dict[key])
-            self.piano_key_list.append(piano_keys)
-        self.__sort_piano_key_list(sort_keys, direction)
+            self.__piano_key_list.append(piano_keys)
 
-        return self.piano_key_list
+        if self.__piano_key_list:
+            self.__sort_piano_key_list(sort_keys, direction)
+
+        return self.__piano_key_list
 
     def __sort_piano_key_list(self, sort_keys, direction):
-        if self.piano_key_list:
+        if self.__piano_key_list:
             direction = True if direction == Direction.Descending else False
             if sort_keys == SortKeys.KeyPattern:
-                self.piano_key_list.sort(key=lambda piano_key: piano_key.key_pattern, reverse=direction)
+                self.__piano_key_list.sort(key=lambda piano_key: piano_key.key_pattern, reverse=direction)
             elif sort_keys == SortKeys.WhiteCount:
-                self.piano_key_list.sort(key=lambda piano_key: piano_key.white_count, reverse=direction)
+                self.__piano_key_list.sort(key=lambda piano_key: piano_key.white_count, reverse=direction)
             elif sort_keys == SortKeys.BlackCount:
-                self.piano_key_list.sort(key=lambda piano_key: piano_key.black_count, reverse=direction)
+                self.__piano_key_list.sort(key=lambda piano_key: piano_key.black_count, reverse=direction)
             else:
-                self.piano_key_list.sort(key=lambda piano_key: piano_key.count, reverse=direction)
+                self.__piano_key_list.sort(key=lambda piano_key: piano_key.count, reverse=direction)
 
     def print_key_pattern(self, note_name_type=None, sort_keys=SortKeys.Count,
                           direction=Direction.Descending):
@@ -273,14 +273,14 @@ class Transpose:
         # transposed in all 12 musical keys
 
         note_type = self.__get_valid_note_name_type(note_name_type)
-        key_patterns = self.get_tone_groups_by_key_pattern(note_type, sort_keys, direction)
+        key_patterns = self.get_key_pattern_summary(note_type, sort_keys, direction)
         if key_patterns:
             for keys in key_patterns:
                 print(keys.key_pattern, "|", keys.count, "|", keys.root_notes)
 
     def print_positions(self, note_name_type=None):
 
-        # shortcut to view a a group of tones transposed in all 12 musical keys
+        # shortcut to view a group of tones transposed in all 12 musical keys
 
         positions = self.get_all_positions()
         note_type = self.__get_valid_note_name_type(note_name_type)
@@ -315,15 +315,15 @@ class Transpose:
 
     def get_intervals(self, note_name_type=None):
         note_type = NoteNameType.Enharmonic if note_name_type is None else note_name_type
-        if not self.intervals_list or note_type is not self.note_name_type:
-            self.intervals_list = []
+        if not self.__intervals_list or note_type is not self.note_name_type:
+            self.__intervals_list = []
             self.note_name_type = note_type
             root_tone = Tone.get_instance_from_name(self.root)
             for note in self.notes_list:
                 tone = Tone.get_instance_from_name(note)
-                self.intervals_list.append(
+                self.__intervals_list.append(
                     self.get_interval_label(tone.pitch_number - root_tone.pitch_number, note_type))
-        return self.intervals_list
+        return self.__intervals_list
 
     def print_intervals(self, note_name_type=None):
         print(self.get_intervals(self.__get_valid_note_name_type(note_name_type)))
@@ -346,15 +346,15 @@ class Transpose:
     def get_transposition(self, pitch_number):
         if not Tone.is_valid_pitch(pitch_number):
             raise ValueError
-        if not self.transposed_list:
+        if not self.__transposed_list:
             self.get_all_positions()
-        return self.transposed_list[pitch_number - 1]
+        return self.__transposed_list[pitch_number - 1]
 
     def get_transposition_for_named_key(self, key):
         tone = Tone.get_instance_from_name(key)
-        if not self.transposed_list:
+        if not self.__transposed_list:
             self.get_all_positions()
-        return self.transposed_list[tone.pitch_number - 1]
+        return self.__transposed_list[tone.pitch_number - 1]
 
 
 class Progression:
@@ -363,7 +363,6 @@ class Progression:
         self.tone_groups = tone_groups
 
     def get_root_positions(self, note_group_type=None):
-
         # Retrieves the root notes from a series of ToneGroups in all positions
         # so you can see the interval pattern of the progression in all keys
 
