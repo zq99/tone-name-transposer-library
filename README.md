@@ -21,7 +21,7 @@ Next, you can either print a quick summary to the output window of all transposi
 t.print_positions()
 ```
 
-Or you can return an interable object, and cycle through and print them:
+Or you can return an iterable object, and cycle through and print them:
 
 ```
 for p in t.get_all_positions():
