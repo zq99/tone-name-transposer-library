@@ -18,6 +18,6 @@ setup(
     author='Zaid Qureshi',
     author_email='zq99@hotmail.com',
     keywords=['MUSIC THEORY', 'PIANO', 'TRANSPOSITION','KEYBOARD','CHORDS','SCALES'],
-    long_description=open('README.md').read() + "\n\n" + open('CHANGELOG.txt').read(),
+    long_description=open('README.md').read(),
     description='Transposes a series of tones into all 12 keys and classifies them by their shape on a piano keyboard',
 )
