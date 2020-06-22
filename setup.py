@@ -10,7 +10,7 @@ classifiers = [
 
 setup(
     name='tonetransposer',
-    version='0.0.1',
+    version='0.0.2',
     packages=['tonetranspose'],
     url='',
     classifiers=classifiers,
