@@ -11,6 +11,7 @@ classifiers = {
 setup(
     name='tonetransposer',
     version='0.0.1',
+    download_url='https://github.com/zq99/ToneTransposer/archive/v0.0.1.tar.gz'
     packages=['tonetranspose'],
     url='',
     classifiers=classifiers,
