@@ -1,12 +1,12 @@
 from setuptools import setup
 
-classifiers = {
+classifiers = [
     'Development Status :: 5 - Production/Stable',
     'Intended Audience :: Education',
     'Operating System :: Microsoft :: Windows :: Windows 10',
     'License :: OSI Approved :: GPL2',
-    'Programming Language :: Python :: 3',
-}
+    'Programming Language :: Python :: 3'
+]
 
 setup(
     name='tonetransposer',
