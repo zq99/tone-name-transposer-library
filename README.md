@@ -14,7 +14,7 @@ pip install tonetransposer==0.0.5
 ```
 Import the package into your project like so:
 ```
-import tonetranspose.transpose as t
+import tonetranspose.transpose as tp
 ```
 
 ## Transposing
