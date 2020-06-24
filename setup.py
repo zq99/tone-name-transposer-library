@@ -4,7 +4,7 @@ classifiers = [
     'Development Status :: 5 - Production/Stable',
     'Intended Audience :: Education',
     'Operating System :: Microsoft :: Windows :: Windows 10',
-    'License :: OSI Approved :: GNU General Public License v2.0 only (GPL-2.0-only)',
+    'License :: OSI Approved :: GNU Lesser General Public License v2 (LGPLv2)',
     'Programming Language :: Python :: 3'
 ]
 
