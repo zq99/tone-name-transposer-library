@@ -6,6 +6,16 @@ This is a library that takes a series of tones and transposes them into all 12 m
 
 It is designed to help musicians analyze tone patterns on a piano.
 
+## Installation
+
+Type the following command in the Terminal window to install:
+```
+pip install tonetransposer==0.0.5
+```
+Import the package into your project like so:
+```
+import tonetranspose.transpose as t
+```
 
 ## Transposing
 
